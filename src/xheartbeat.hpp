@@ -11,9 +11,7 @@
 #ifndef XENA_HEARTBEAT_HPP
 #define XENA_HEARTBEAT_HPP
 
-#include "zmq.hpp"
-
-#include "xena/xena_config.hpp"
+#include "zmq_addon.hpp"
 
 namespace xena
 {
@@ -23,7 +21,7 @@ namespace xena
 
         using to_notifier_t = std::function<void ()>;
 
-        xheartbeat(zmq::context& context,
+        xheartbeat(zmq::context_t& context,
                    const std::string& heartbeat_end_point,
                    const std::string& controller_end_point,
                    const to_notifier_t& notifier,

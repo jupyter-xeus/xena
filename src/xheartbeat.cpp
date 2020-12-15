@@ -16,7 +16,7 @@
 
 namespace xena
 {
-    xheartbeat::xheartbeat(zmq::context& context,
+    xheartbeat::xheartbeat(zmq::context_t& context,
                            const std::string& heartbeat_end_point,
                            const std::string& controller_end_point,
                            const to_notifier_t& notifier,
@@ -25,7 +25,7 @@ namespace xena
         : m_heartbeat(context, zmq::socket_type::dealer)
         , m_controller(context, zmq::socket_type::rep)
         , m_notifier(notifier)
-        , m_timeout(timout)
+        , m_timeout(timeout)
         , m_max_retry(max_retry)
     {
         m_heartbeat.set(zmq::sockopt::linger, get_socket_linger());
@@ -46,7 +46,7 @@ namespace xena
         while(true)
         {
             m_heartbeat.send(zmq::message_t("ping", 4), zmq::send_flags::none);
-            zmq::poll(&items, 2, long(m_timeout));
+            zmq::poll(&items[0], 2, long(m_timeout));
 
             if (items[0].revents & ZMQ_POLLIN)
             {
@@ -54,10 +54,10 @@ namespace xena
                 wire_msg.recv(m_heartbeat);
                 nb_retry = 0;
 
-                std::chrono::milliseconds sf(timeout / 2);
+                std::chrono::milliseconds sf(m_timeout / 2);
                 std::this_thread::sleep_for(sf);
             }
-            else if (iter[1].revents & ZMQ_POLLIN)
+            else if (items[1].revents & ZMQ_POLLIN)
             {
                 // stop message
                 zmq::multipart_t wire_msg;
