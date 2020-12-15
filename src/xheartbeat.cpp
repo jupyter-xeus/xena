@@ -19,12 +19,10 @@ namespace xena
     xheartbeat::xheartbeat(zmq::context_t& context,
                            const std::string& heartbeat_end_point,
                            const std::string& controller_end_point,
-                           const to_notifier_t& notifier,
                            int timeout,
                            int max_retry)
         : m_heartbeat(context, zmq::socket_type::dealer)
-        , m_controller(context, zmq::socket_type::rep)
-        , m_notifier(notifier)
+        , m_controller(context, zmq::socket_type::dealer)
         , m_timeout(timeout)
         , m_max_retry(max_retry)
     {
@@ -71,7 +69,7 @@ namespace xena
                 ++nb_retry;
                 if (nb_retry == m_max_retry)
                 {
-                    m_notifier();
+                    m_controller.send(zmq::message_t("timeout", 7), zmq::send_flags::none);
                 }
             }
         }
