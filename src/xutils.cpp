@@ -1,7 +1,5 @@
 /***************************************************************************
-* Copyright (c) 2020, Martin Renou, Johan Mabille, Sylvain Corlay, and     *
-* Wolf Vollprecht                                                          *
-* Copyright (c) 2020, QuantStack
+* Copyright (c) 2020, QuantStack and xena contributors                     *
 *                                                                          *
 * Distributed under the terms of the BSD 3-Clause License.                 *
 *                                                                          *

@@ -1,6 +1,5 @@
 ############################################################################
-# Copyright (c) 2016, Johan Mabille, Sylvain Corlay, Martin Renou          #
-# Copyright (c) 2016, QuantStack                                           #
+# Copyright (c) 2020, QuantStack and xena contributors                     #
 #                                                                          #
 # Distributed under the terms of the BSD 3-Clause License.                 #
 #                                                                          #
@@ -111,7 +110,9 @@ endif ()
 # ============
 
 set(XENA_HEADERS
+    ${XENA_INCLUDE_DIR}/xena/xchannel.hpp
     ${XENA_INCLUDE_DIR}/xena/xena.hpp
+    ${XENA_INCLUDE_DIR}/xena/xenum_iterator.hpp
 )
 
 set(XENA_SOURCES
@@ -119,6 +120,9 @@ set(XENA_SOURCES
     ${XENA_SOURCE_DIR}/xheartbeat.cpp
     ${XENA_SOURCE_DIR}/xutils.hpp
     ${XENA_SOURCE_DIR}/xutils.cpp
+    ${XENA_SOURCE_DIR}/xzmq_client.hpp
+    ${XENA_SOURCE_DIR}/xzmq_multi_client.hpp
+    ${XENA_SOURCE_DIR}/xzmq_multi_client.cpp
 )
 
 # Targets and link

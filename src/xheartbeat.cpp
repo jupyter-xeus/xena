@@ -1,7 +1,5 @@
 /***************************************************************************
-* Copyright (c) 2020, Martin Renou, Johan Mabille, Sylvain Corlay, and     *
-* Wolf Vollprecht                                                          *
-* Copyright (c) 2020, QuantStack
+* Copyright (c) 2020, QuantStack and xena contributors                     *
 *                                                                          *
 * Distributed under the terms of the BSD 3-Clause License.                 *
 *                                                                          *
@@ -55,14 +53,6 @@ namespace xena
                 std::chrono::milliseconds sf(m_timeout / 2);
                 std::this_thread::sleep_for(sf);
             }
-            else if (items[1].revents & ZMQ_POLLIN)
-            {
-                // stop message
-                zmq::multipart_t wire_msg;
-                wire_msg.recv(m_controller);
-                wire_msg.send(m_controller);
-                break;
-            }
             else
             {
                 // Timeout
@@ -72,6 +62,15 @@ namespace xena
                     m_controller.send(zmq::message_t("timeout", 7), zmq::send_flags::none);
                 }
             }
+            if (items[1].revents & ZMQ_POLLIN)
+            {
+                // stop message
+                zmq::multipart_t wire_msg;
+                wire_msg.recv(m_controller);
+                wire_msg.send(m_controller);
+                break;
+            }
+
         }
     }
 }
