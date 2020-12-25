@@ -6,8 +6,12 @@
 * The full license is in the file LICENSE, distributed with this software. *
 ****************************************************************************/
 
+#include "nlohmann/json.hpp"
+
 #include "xutils.hpp"
 #include "xzmq_multi_client.hpp"
+
+namespace nl = nlohmann;
 
 namespace xena
 {
@@ -61,6 +65,7 @@ namespace xena
                                        const std::string& iopub_end_point)
     {
         m_client_list.push_back(xzmq_client(next_client_id(),
+                                            *p_context,
                                             control_end_point,
                                             shell_end_point,
                                             stdin_end_point,
@@ -84,6 +89,17 @@ namespace xena
 
     void xzmq_multi_client::handle_controller_message()
     {
+        zmq::message_t message;
+        m_controller.recv(message, zmq::recv_flags::none);
+        const char* buffer = message.data<const char>();
+        nl::json j = nl::json::parse(buffer, buffer + message.size());
+
+        if (j["command"] == "add")
+        {
+        }
+        else if (j["command"] == "remove")
+        {
+        }
     }
 
     void xzmq_multi_client::handle_kernel_message(size_t i)

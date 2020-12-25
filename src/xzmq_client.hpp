@@ -9,6 +9,7 @@
 #ifndef XZMQ_CLIENT_HPP
 #define XZMQ_CLIENT_HPP
 
+#include <array>
 #include <functional>
 #include <string>
 
@@ -25,8 +26,9 @@ namespace xena
         using socket_list = std::array<zmq::socket_t, static_cast<size_t>(channel::last)>;
 
         xzmq_client(size_t id,
-                    const std::string& shell_end_point,
+                    zmq::context_t& context,
                     const std::string& control_end_point,
+                    const std::string& shell_end_point,
                     const std::string& stdin_end_point,
                     const std::string& iopub_end_point);
 
@@ -35,8 +37,6 @@ namespace xena
 
         size_t get_id() const;
         socket_list& get_sockets();
-
-        void disconnect();
 
     private:
 

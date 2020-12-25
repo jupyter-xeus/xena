@@ -121,6 +121,7 @@ set(XENA_SOURCES
     ${XENA_SOURCE_DIR}/xutils.hpp
     ${XENA_SOURCE_DIR}/xutils.cpp
     ${XENA_SOURCE_DIR}/xzmq_client.hpp
+    ${XENA_SOURCE_DIR}/xzmq_client.cpp
     ${XENA_SOURCE_DIR}/xzmq_multi_client.hpp
     ${XENA_SOURCE_DIR}/xzmq_multi_client.cpp
 )
