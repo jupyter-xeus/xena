@@ -8,6 +8,8 @@
 
 #include "nlohmann/json.hpp"
 
+#include "xeus/xmiddleware.hpp"
+
 #include "xutils.hpp"
 #include "xzmq_multi_client.hpp"
 
@@ -59,10 +61,10 @@ namespace xena
         return ITEM_OFFSET + client_index * size_t(channel::last);
     }
 
-    void xzmq_multi_client::add_client(const std::string& shell_end_point,
-                                       const std::string& control_end_point,
-                                       const std::string& stdin_end_point,
-                                       const std::string& iopub_end_point)
+    size_t xzmq_multi_client::add_client(const std::string& control_end_point,
+                                         const std::string& shell_end_point,
+                                         const std::string& stdin_end_point,
+                                         const std::string& iopub_end_point)
     {
         m_client_list.push_back(xzmq_client(next_client_id(),
                                             *p_context,
@@ -77,11 +79,12 @@ namespace xena
         {
             return { s, 0, ZMQ_POLLIN, 0 };
         });
+        return m_client_list.back().get_id();
     }
 
-    void xzmq_multi_client::remove_client(size_t i)
+    void xzmq_multi_client::remove_client(ptrdiff_t i)
     {
-        m_client_list.erase(m_client_list.begin() + static_cast<ptrdiff_t>(ITEM_OFFSET + i));
+        m_client_list.erase(m_client_list.begin() + i);
         auto it = m_pollitems.begin() + static_cast<ptrdiff_t>(get_pollitem_index(i));
         auto it_end = it + static_cast<ptrdiff_t>(channel::last);
         m_pollitems.erase(it, it_end);
@@ -96,9 +99,44 @@ namespace xena
 
         if (j["command"] == "add")
         {
+            std::string transport = j["transport"].get<std::string>();
+            std::string ip = j["ip"].get<std::string>();
+            std::string control_port = j["control_port"].get<std::string>();
+            std::string shell_port = j["shell_port"].get<std::string>();
+            std::string stdin_port = j["stdin_port"].get<std::string>();
+            std::string iopub_port = j["ioput_port"].get<std::string>();
+            size_t id = add_client(xeus::get_end_point(transport, ip, control_port),
+                                   xeus::get_end_point(transport, ip, shell_port),
+                                   xeus::get_end_point(transport, ip, stdin_port),
+                                   xeus::get_end_point(transport, ip, iopub_port));
+            nl::json jrep =
+            {
+                {"type", "response"},
+                {"command", "add"},
+                {"client_id", id}
+            };
+            std::string buffer_rep = jrep.dump(-1, ' ', false);
+            zmq::message_t rep(buffer_rep.c_str(), buffer_rep.size());
+            m_controller.send(rep, zmq::send_flags::none);
         }
         else if (j["command"] == "remove")
         {
+            size_t id = j["client_id"].get<size_t>();
+            auto it = std::find_if(m_client_list.begin(), m_client_list.end(),
+                                   [id](const auto& c) { return c.get_id() == id; });
+            if (it != m_client_list.end())
+            {
+                remove_client(it - m_client_list.begin());
+                nl::json jrep = 
+                {
+                    {"type", "response"},
+                    {"command", "remove"},
+                    {"client_id", id}
+                };
+                std::string buffer_rep = jrep.dump(-1, ' ', false);
+                zmq::message_t rep(buffer_rep.c_str(), buffer_rep.size());
+                m_controller.send(rep, zmq::send_flags::none);
+            }
         }
     }
 

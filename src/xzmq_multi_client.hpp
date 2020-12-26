@@ -30,12 +30,12 @@ namespace xena
 
         size_t get_pollitem_index(size_t client_index) const;
 
-        void add_client(const std::string& shell_end_point,
-                        const std::string& control_end_point,
-                        const std::string& stdin_end_point,
-                        const std::string& iopub_end_point);
+        size_t add_client(const std::string& control_end_point,
+                          const std::string& shell_end_point,
+                          const std::string& stdin_end_point,
+                          const std::string& iopub_end_point);
 
-        void remove_client(size_t cliend_index);
+        void remove_client(ptrdiff_t cliend_index);
 
         void handle_controller_message();
         void handle_kernel_message(size_t client_index);
