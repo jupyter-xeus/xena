@@ -1,7 +1,5 @@
 /***************************************************************************
-* Copyright (c) 2020, Martin Renou, Johan Mabille, Sylvain Corlay, and     *
-* Wolf Vollprecht                                                          *
-* Copyright (c) 2020, QuantStack
+* Copyright (c) 2020, QuantStack and xena contributors                     *
 *                                                                          *
 * Distributed under the terms of the BSD 3-Clause License.                 *
 *                                                                          *
@@ -19,12 +17,10 @@ namespace xena
     xheartbeat::xheartbeat(zmq::context_t& context,
                            const std::string& heartbeat_end_point,
                            const std::string& controller_end_point,
-                           const to_notifier_t& notifier,
                            int timeout,
                            int max_retry)
         : m_heartbeat(context, zmq::socket_type::dealer)
-        , m_controller(context, zmq::socket_type::rep)
-        , m_notifier(notifier)
+        , m_controller(context, zmq::socket_type::dealer)
         , m_timeout(timeout)
         , m_max_retry(max_retry)
     {
@@ -57,7 +53,16 @@ namespace xena
                 std::chrono::milliseconds sf(m_timeout / 2);
                 std::this_thread::sleep_for(sf);
             }
-            else if (items[1].revents & ZMQ_POLLIN)
+            else
+            {
+                // Timeout
+                ++nb_retry;
+                if (nb_retry == m_max_retry)
+                {
+                    m_controller.send(zmq::message_t("timeout", 7), zmq::send_flags::none);
+                }
+            }
+            if (items[1].revents & ZMQ_POLLIN)
             {
                 // stop message
                 zmq::multipart_t wire_msg;
@@ -65,15 +70,7 @@ namespace xena
                 wire_msg.send(m_controller);
                 break;
             }
-            else
-            {
-                // Timeout
-                ++nb_retry;
-                if (nb_retry == m_max_retry)
-                {
-                    m_notifier();
-                }
-            }
+
         }
     }
 }
