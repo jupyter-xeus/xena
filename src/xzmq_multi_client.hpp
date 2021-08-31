@@ -26,16 +26,18 @@ namespace xena
 
     private:
 
-        size_t next_client_id() const;
+        using client_id_t = size_t;
 
-        size_t get_pollitem_index(size_t client_index) const;
+        client_id_t next_client_id() const;
 
-        size_t add_client(const std::string& control_end_point,
-                          const std::string& shell_end_point,
-                          const std::string& stdin_end_point,
-                          const std::string& iopub_end_point);
+        size_t get_pollitem_index(size_t client_id) const;
 
-        void remove_client(ptrdiff_t cliend_index);
+        client_id_t add_client(const std::string& control_end_point,
+                               const std::string& shell_end_point,
+                               const std::string& stdin_end_point,
+                               const std::string& iopub_end_point);
+
+        bool remove_client(client_id_t cliend_index);
 
         void handle_controller_message();
         void handle_kernel_message(size_t client_index);
@@ -43,6 +45,7 @@ namespace xena
         zmq::context_t* p_context;
         zmq::socket_t m_controller;
         std::vector<zmq::pollitem_t> m_pollitems;
+        std::map<client_id_t, size_t> m_client_index_map;
         std::vector<xzmq_client> m_client_list;
     };
 }

@@ -50,9 +50,9 @@ namespace xena
         }
     }
 
-    size_t xzmq_multi_client::next_client_id() const
+    auto xzmq_multi_client::next_client_id() const -> client_id_t
     {
-        static size_t client_id = 0;
+        static client_id_t client_id = 0;
         return client_id++;
     }
 
@@ -61,10 +61,10 @@ namespace xena
         return ITEM_OFFSET + client_index * size_t(channel::last);
     }
 
-    size_t xzmq_multi_client::add_client(const std::string& control_end_point,
-                                         const std::string& shell_end_point,
-                                         const std::string& stdin_end_point,
-                                         const std::string& iopub_end_point)
+    auto xzmq_multi_client::add_client(const std::string& control_end_point,
+                                       const std::string& shell_end_point,
+                                       const std::string& stdin_end_point,
+                                       const std::string& iopub_end_point) -> client_id_t
     {
         m_client_list.push_back(xzmq_client(next_client_id(),
                                             *p_context,
@@ -79,23 +79,40 @@ namespace xena
         {
             return { s, 0, ZMQ_POLLIN, 0 };
         });
-        return m_client_list.back().get_id();
+        cient_id_t id = m_client_list.back().get_id();
+        m_client_index_map.insert(id, m_client_list.size() - 1);
+        return id;
     }
 
-    void xzmq_multi_client::remove_client(ptrdiff_t i)
+    bool xzmq_multi_client::remove_client(client_id_t id)
     {
-        m_client_list.erase(m_client_list.begin() + i);
-        auto it = m_pollitems.begin() + static_cast<ptrdiff_t>(get_pollitem_index(i));
-        auto it_end = it + static_cast<ptrdiff_t>(channel::last);
-        m_pollitems.erase(it, it_end);
+        bool res = false;
+        auto iter = m_client_index_map.find(id);
+        if (iter != m_client_index_map.end())
+        {
+            size_t index = it->second;
+            m_client_index_map.erase(it);
+            m_client_list.erase(m_client_list.begin() + index);
+            auto poll_it = m_pollitems.begin() + static_cast<ptrdiff_t>(get_pollitem_index(index));
+            auto poll_it_end = it + static_cast<ptrdiff_t>(channel::last);
+            m_pollitems.erase(poll_it,  poll_it_end);
+            for (size_t i = index; i < m_client_list.size(); ++i)
+            {
+                m_client_index_map[m_client_list[i].get_id()] = i;
+            }
+            res = true;
+        }
+        return res;
     }
 
     void xzmq_multi_client::handle_controller_message()
     {
-        zmq::message_t message;
-        m_controller.recv(message, zmq::recv_flags::none);
-        const char* buffer = message.data<const char>();
-        nl::json j = nl::json::parse(buffer, buffer + message.size());
+        zmq::multipart_t wire_msg;
+        wire_msg.recv(m_controller);
+
+        zmq::message_t command = wire_msg.pop();
+        const char* buffer = command.data<const char>();
+        nl::json j = nl::json::parse(buffer, buffer + command.size());
 
         if (j["command"] == "add")
         {
@@ -122,21 +139,43 @@ namespace xena
         else if (j["command"] == "remove")
         {
             size_t id = j["client_id"].get<size_t>();
-            auto it = std::find_if(m_client_list.begin(), m_client_list.end(),
-                                   [id](const auto& c) { return c.get_id() == id; });
-            if (it != m_client_list.end())
+            nl::json jrep = 
             {
-                remove_client(it - m_client_list.begin());
-                nl::json jrep = 
-                {
-                    {"type", "response"},
-                    {"command", "remove"},
-                    {"client_id", id}
-                };
-                std::string buffer_rep = jrep.dump(-1, ' ', false);
-                zmq::message_t rep(buffer_rep.c_str(), buffer_rep.size());
-                m_controller.send(rep, zmq::send_flags::none);
+                {"type", "response"},
+                {"command", "remove"},
+                {"client_id", id}
+            };
+            if (remove_client(id))
+            {
+                jrep["success"] = true;
             }
+            else
+            {
+                jrep["success"] = false;
+            }
+            std::string buffer_rep = jrep.dump(-1, ' ', false);
+            zmq::message_t rep(buffer_rep.c_str(), buffer_rep.size());
+            m_controller.send(rep, zmq::send_flags::none);
+        }
+        else if (j["command"] = "forward"])
+        {
+            size_t id = j["client_id"].get<size_t>();
+            channel c = from_channel_name(j["channel_name"]);
+            auto iter = m_client_index_map.find(id);
+            nl::json jrep =
+            {
+                {"type", "response"},
+                {"command", "forward"},
+                {"success", false}
+            };
+            if (iter != m_client_index_map.end())
+            {
+                m_client_list[iter->second].send(wire_msg, c);
+                jrep["success"] = true;
+            }
+            std::string buffer_rep = jrep.dump(-1, ' ', false);
+            zmq::message_t rep(buffer_rep.c_str(), buffer_rep.size());
+            m_controller.send(rep, zmq::send_flags::none);
         }
     }
 
@@ -148,9 +187,15 @@ namespace xena
             if (pollitem[channel_index(c)].revents & ZMQ_POLLIN)
             {
                 zmq::multipart_t msg = m_client_list[i].receive(c);
-                msg.push_back(zmq::message_t(std::string("{channel: ") + channel_name(c) + "}"));
-                msg.push_back(zmq::message_t(std::to_string(m_client_list[i].get_id())));
-                msg.send(m_controller);
+                zmq::multipart_t to_send;
+                to_send.push_back(zmq::message_t(std::string("{channel: ") + channel_name(c) + "}"));
+                to_send.push_back(zmq::message_t(std::to_string(m_client_list[i].get_id())));
+                to_send.push_back(msg.pop()); // Signature
+                to_send.push_back(msg.pop()); // Header
+                to_send.push_back(msg.pop()); // Parent Header
+                to_send.push_back(msg.pop()); // Metadata
+                to_send.push_back(msg.pop()); // Content
+                to_send.send(m_controller);
             }
         }
     }
